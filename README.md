@@ -15,7 +15,7 @@ For matrices `X` and `W`, vector `y` of appropriate dimensions:
     - Heteroskedasticity (see WLS): `V = Diagonal(σ²₁, ..., σ²ₙ)`
     - [Autoregressive model - AR(1)](https://en.wikipedia.org/wiki/Autoregressive_model):
         - Model: `yₜ = C + ρ yₜ₋₁ + ϵₜ`
-        - `Var(yₜ) = Var(ϵₜ) / (1 - ρ^2) .* [ρ ^ abs(i-j) for i in 1:n, j in 1:n]`
+        - `Var(yₜ) = V = Var(ϵₜ) / (1 - ρ^2) .* [ρ ^ abs(i-j) for i in 1:n, j in 1:n]`
     - Equicorrelation Model: `Var(ϵ) = σ²I .+ τ`
 
 
@@ -37,6 +37,6 @@ For matrices `X` and `W`, vector `y` of appropriate dimensions:
 ## Resources
 
 - [Hua Zhou](http://hua-zhou.github.io)'s Course Notes at NC State:
-    - [ST 758 - Statistical Computing (Fall 2014)](http://hua-zhou.github.io/teaching/st758-2014fall/ST758-2014-Fall-LecNotes.pdf)
-    - [ST 552 - Linear Models (Fall 2013)](http://hua-zhou.github.io/teaching/st552-2013fall/ST552-2013-Fall-LecNotes.pdf)
+    - [ST 758 - Statistical Computing - Fall 2014 (PDF)](http://hua-zhou.github.io/teaching/st758-2014fall/ST758-2014-Fall-LecNotes.pdf)
+    - [ST 552 - Linear Models - Fall 2013 (PDF)](http://hua-zhou.github.io/teaching/st552-2013fall/ST552-2013-Fall-LecNotes.pdf)
 - Lange, K (2010). *Numerical analysis for statisticians*. New York: Springer.
