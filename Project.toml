@@ -3,11 +3,15 @@ uuid = "9ec2655e-c5e5-491c-b3ee-fe903717f160"
 authors = ["joshday <emailjoshday@gmail.com> and contributors"]
 version = "0.1.0"
 
-[extras]
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SweepOperator = "7522ee7d-7047-56d0-94d9-4bc626e7058d"
 
 [compat]
 julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test"]
