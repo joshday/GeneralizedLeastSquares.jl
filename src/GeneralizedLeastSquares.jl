@@ -20,12 +20,12 @@ solves the generalized least squares problem:
 
 - Objective Function:
 
-``math
+``
 argmin_β (y - Xβ)'W (y - Xβ)
 ``
 
 - Normal equations:
-``math
+``
 X'WXβ = X'Wy
 ``
 
@@ -113,8 +113,6 @@ struct SweepGLS{T} <: Algorithm
     end
 end
 
-
-
 #-----------------------------------------------------------------------------# CholeskyGLS
 """
     CholeskyGLS(x, y, W=I)
@@ -138,13 +136,13 @@ struct CholeskyGLS{T<:Cholesky, S} <: Algorithm
     end
 end
 
-
-
 #-----------------------------------------------------------------------------# QR_GLS
 """
-    QR_GLS(x, y, W=I)
+    QR_GLS(x, y, sqrtW=I)  # NOTE!!! last argument is the `sqrt` matrix!
 
 Using the cholesky decomposition, `QR_GLS` $docstring
+
+
 
 ### Additional Notes
 
