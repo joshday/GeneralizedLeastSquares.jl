@@ -1,9 +1,13 @@
 module GeneralizedLeastSquares
 
 using LinearAlgebra
-using LinearAlgebra: BlasFloat, BlasComplex
+using LinearAlgebra: BlasFloat, BlasComplex, checksquare
 using SweepOperator: sweep!
 using Statistics: mean
+
+#-----------------------------------------------------------------------------# Notation
+# Objective:    argmin_β (y - Xβ)' W (y - Xβ)
+# Normal Equation:    (X'WX) β = X'Wy
 
 #-----------------------------------------------------------------------------# Algorithm
 abstract type Algorithm end
@@ -51,6 +55,7 @@ Overwrite `a` with the "augmented" block matrix (upper triangle only):
 """
 function augmat!(a::Matrix{T}, x::StridedMatrix{T}, y::StridedVector{T}, ::UniformScaling=I) where {T<:Union{BlasFloat, BlasComplex}}
     n, p = size(x)
+    @assert checksquare(a) > p
     α = T(1 / n)
     @views @inbounds begin
         BLAS.syrk!('U', 'T', α, x, zero(T), a[1:p, 1:p]) # x'x
@@ -62,6 +67,7 @@ end
 
 function augmat!(a::Matrix, x::AbstractMatrix, y::AbstractVector, v_inv::Union{UniformScaling, AbstractMatrix})
     n, p = size(x)
+    @assert checksquare(a) > p
     @views @inbounds begin
         xtv = x'v_inv
         a[1:p, 1:p] = xtv * x ./ n      # X'WX
@@ -92,7 +98,7 @@ end
 
 #-----------------------------------------------------------------------------# SweepGLS
 """
-    SweepGLS(x, y, v_inv)
+    SweepGLS(x, y, W = I)
 
 Using the [sweep operator](https://github.com/joshday/SweepOperator.jl), `SweepGLS` $docstring
 
@@ -115,7 +121,7 @@ end
 
 #-----------------------------------------------------------------------------# CholeskyGLS
 """
-    CholeskyGLS(x, y, W=I)
+    CholeskyGLS(x, y, W = I)
 
 Using the cholesky decomposition, `CholeskyGLS` $docstring
 
@@ -138,10 +144,9 @@ end
 
 #-----------------------------------------------------------------------------# QR_GLS
 """
-    QR_GLS(x, y, sqrtW=I)  # NOTE!!! last argument is the `sqrt` matrix!
+    QR_GLS(x, y, sqrtW = I)  # NOTE!!! last argument is the `sqrt` matrix!
 
 Using the cholesky decomposition, `QR_GLS` $docstring
-
 
 
 ### Additional Notes
