@@ -49,7 +49,7 @@ Overwrite `a` with the "augmented" block matrix (upper triangle only):
 | y'WX   y'Wy |  ./ n
 ```
 """
-function augmat!(a, x::StridedMatrix{T}, y::StridedVector{T}, ::UniformScaling=I) where {T<:Union{BlasFloat, BlasComplex}}
+function augmat!(a::Matrix{T}, x::StridedMatrix{T}, y::StridedVector{T}, ::UniformScaling=I) where {T<:Union{BlasFloat, BlasComplex}}
     n, p = size(x)
     α = T(1 / n)
     @views @inbounds begin
@@ -60,7 +60,7 @@ function augmat!(a, x::StridedMatrix{T}, y::StridedVector{T}, ::UniformScaling=I
     return a
 end
 
-function augmat!(a, x, y, v_inv)
+function augmat!(a::Matrix, x::AbstractMatrix, y::AbstractVector, v_inv::Union{UniformScaling, AbstractMatrix})
     n, p = size(x)
     @views @inbounds begin
         xtv = x'v_inv
@@ -83,9 +83,10 @@ Create the "augmented" block matrix (upper triangle only):
 
 - See [augmat!](@ref) for the in-place version.
 """
-function augmat(x, y, v_inv)
-    p = size(x,1) + 1
-    a = Matrix{promote_type(eltype(x), eltype(y), eltype(v_inv))}(undef, p, p)
+function augmat(x::AbstractMatrix, y::AbstractVector, v_inv::Union{UniformScaling, AbstractMatrix}=I)
+    p = size(x, 2) + 1
+    T = promote_type(eltype(x), eltype(y), eltype(v_inv))
+    a = zeros(T, p, p)
     augmat!(a, x, y, v_inv)
 end
 
@@ -105,13 +106,14 @@ Using the [sweep operator](https://github.com/joshday/SweepOperator.jl), `SweepG
 struct SweepGLS{T} <: Algorithm
     matrix::Matrix{T}
     β::Vector{T}
+    function SweepGLS(x, y, v_inv=I)
+        a = augmat(x, y, v_inv)
+        sweep!(a, 1:size(x,2))
+        new{eltype(a)}(a, a[1:end-1, end])
+    end
 end
 
-function SweepGLS(x, y, v_inv=I)
-    a = augmat(x, y, v_inv)
-    sweep!(a, 1:size(x,2))
-    SweepGLS(a, a[1:end-1, end])
-end
+
 
 #-----------------------------------------------------------------------------# CholeskyGLS
 """
@@ -128,14 +130,15 @@ Using the cholesky decomposition, `CholeskyGLS` $docstring
 struct CholeskyGLS{T<:Cholesky, S} <: Algorithm
     decomp::T
     β::Vector{S}
+    function CholeskyGLS(x, y, v_inv=I)
+        a = augmat(x, y, v_inv)
+        decomp = cholesky(Symmetric(a, :U))
+        β = @views decomp.U[1:end-1, 1:end-1] \ decomp.U[1:end-1, end]
+        new{typeof(decomp),eltype(β)}(decomp, β)
+    end
 end
 
-function CholeskyGLS(x, y, v_inv=I)
-    a = augmat(x, y, v_inv)
-    decomp = cholesky(Hermitian(a, :U))
-    β = @views decomp.U[1:end-1, 1:end-1] \ decomp.U[1:end-1, end]
-    CholeskyGLS(decomp, β)
-end
+
 
 #-----------------------------------------------------------------------------# QR_GLS
 """
@@ -147,13 +150,12 @@ Using the cholesky decomposition, `QR_GLS` $docstring
 
 - This is the most stable algorithm (and slowest for n >> p).
 """
-struct QR_GLS{QR} <: Algorithm
+struct QR_GLS{QR<:LinearAlgebra.QRCompactWY, S} <: Algorithm
     decomp::QR
+    β::Vector{S}
 end
 function qr_coef(decomp)
-    R = decomp.R
-    p = size(R, 1) - 1
-    @views R[1:p, 1:p] \ R[1:p, end]
+    @views UpperTriangular(decomp.R[1:end-1, 1:end-1]) \ decomp.R[1:end-1, end]
 end
 
 function QR_GLS(x, y, ::UniformScaling = I)
