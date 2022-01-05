@@ -29,17 +29,19 @@ Firstly, why even provide multiple solvers?
 
 - GLS via the [sweep operator](https://github.com/joshday/SweepOperator.jl)
 - Less stable, also gets you standard errors for free.
+- Used by SAS.
 
 ### `CholeskyGLS(x, y, w)`
 
 - GLS via the cholesky decomposition.
-- Less stable, fastest.
+- Less stable, often the fastest.
 
 ### `QR_GLS(x, y, sqrt_w)`
 
 - GLS via the QR decomposition (most stable, but much slower for n >> p).
 - Most stable.
 - Note that in order to be more efficient, this algorithm uses the matrix square root as the third argument.
+- Used by R/[GLM.jl](https://github.com/JuliaStats/GLM.jl)
 
 ## Benchmarks (see `test/simulations.jl`)
 
