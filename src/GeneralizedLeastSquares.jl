@@ -65,7 +65,8 @@ function augmat!(a::Matrix{T}, x::StridedMatrix{T}, y::StridedVector{T}, ::Unifo
     return a
 end
 
-function augmat!(a::Matrix, x::AbstractMatrix, y::AbstractVector, v_inv::Union{UniformScaling, AbstractMatrix})
+# v_inv requires methods: `x' * v_inv` and `dot(y, v_inv, y)`
+function augmat!(a::Matrix, x::AbstractMatrix, y::AbstractVector, v_inv)
     n, p = size(x)
     @assert checksquare(a) > p
     @views @inbounds begin
@@ -89,7 +90,7 @@ Create the "augmented" block matrix (upper triangle only):
 
 - See [augmat!](@ref) for the in-place version.
 """
-function augmat(x::AbstractMatrix, y::AbstractVector, v_inv::Union{UniformScaling, AbstractMatrix}=I)
+function augmat(x::AbstractMatrix, y::AbstractVector, v_inv=I)
     p = size(x, 2) + 1
     T = promote_type(eltype(x), eltype(y), eltype(v_inv))
     a = zeros(T, p, p)
