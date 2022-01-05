@@ -135,7 +135,8 @@ linreg(x, y, w) = (A = x'w; Hermitian(A*x) \ A*y)
 
 ## Resources
 
-- [Hua Zhou](http://hua-zhou.github.io)'s Course Notes at NC State:
-    - [ST 758 - Statistical Computing - Fall 2014 (PDF)](http://hua-zhou.github.io/teaching/st758-2014fall/ST758-2014-Fall-LecNotes.pdf)
-    - [ST 552 - Linear Models - Fall 2013 (PDF)](http://hua-zhou.github.io/teaching/st552-2013fall/ST552-2013-Fall-LecNotes.pdf)
+- [Hua Zhou](http://hua-zhou.github.io)'s Course Notes:
+   - [UCLA - Biostat 257 - Statistical Computing - Spring 2021](https://ucla-biostat-257-2021spring.github.io/syllabus/syllabus.html)
+   - [NC State - ST 758 - Statistical Computing - Fall 2014](http://hua-zhou.github.io/teaching/st758-2014fall/schedule.html)
+   - [NC State - ST 552 - Linear Models - Fall 2013](http://hua-zhou.github.io/teaching/st552-2013fall/schedule.html)
 - Lange, K (2010). *Numerical analysis for statisticians*. New York: Springer.

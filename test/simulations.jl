@@ -27,7 +27,7 @@ function sim(n, p, w=I)
 
     out["SweepGLS"] =       @benchmark SweepGLS($x, $y, $w)
     out["CholeskyGLS"] =    @benchmark CholeskyGLS($x, $y, $w)
-    out["QR_GLS"] =         @benchmark QR_GLS($x, $y, $w)
+    out["QR_GLS"] =         @benchmark QR_GLS($x, $y, $(sqrt(w)))
     out["linreg"] =         @benchmark linreg($x, $y, $w)
 
     df = DataFrame(model="SweepGLS", times=out["SweepGLS"])
