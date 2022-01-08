@@ -57,7 +57,7 @@ Platform Info:
 
 ```julia
 x = randn(n, p)
-errs = cholesky(w).U * randn(n)  # For ws: I(n) and Diagonal(rand(n))
+errs = cholesky(w).U * randn(n)  # Or just randn(n)
 y = x * (1:p) + errs
 ```
 
