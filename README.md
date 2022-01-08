@@ -26,7 +26,7 @@ Firstly, why even provide multiple solvers?
 **There is no universally superior method**.  Your task may prioritize stability over speed (or vice versa).
 
 - `LinRegQR(x, y)`
-   - Most stable (also slowest).
+   - Most stable.
    - Used by R/GLM.jl
    - Essentially: `qr(x) \ y `
 - `LinRegSweep(x, y, w=I)`

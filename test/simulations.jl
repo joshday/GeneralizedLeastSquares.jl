@@ -28,7 +28,7 @@ function sim(n, p, w=nothing)
 
 
     data = round.(map(x -> median(x).time, values(out)) ./ 10^9, digits=4)
-    b = barplot(collect(keys(out)), data; width=80, title)
+    b = barplot(collect(keys(out)), data; width=70, title)
     show(b)
     println()
 end
