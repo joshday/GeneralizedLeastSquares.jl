@@ -64,33 +64,34 @@ y = x * (1:p) + errs
 ### OLS Timings
 
 ```
-                                                  n=1000000, p=50, w=Nothing
-                      ┌                                                                                ┐
-          LinRegSweep ┤■■■■■■■■■■■■■■ 0.1423
-             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.7208
-       LinRegCholesky ┤■■■■■■■■■■■■■■ 0.1421
-   LinRegBunchKaufman ┤■■■■■■■■■■■■■■ 0.1414
-                      └                                                                                ┘
-                              n=1000000, p=50, w=LinearAlgebra.Diagonal{Float64, Vector{Float64}}
-                      ┌                                                                                ┐
-          LinRegSweep ┤■■■■■■■■■■■■■■■■ 0.1696
-             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.7722
-       LinRegCholesky ┤■■■■■■■■■■■■■■■ 0.1659
-   LinRegBunchKaufman ┤■■■■■■■■■■■■■■■ 0.164
-                      └                                                                                ┘
-                                                   n=1000, p=500, w=Nothing
-                      ┌                                                                                ┐
-          LinRegSweep ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.0295
-             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■ 0.0092
-       LinRegCholesky ┤■■■■■■ 0.0024
-   LinRegBunchKaufman ┤■■■■■■■■■■ 0.0043
-                      └                                                                                ┘
-                               n=1000, p=500, w=LinearAlgebra.Diagonal{Float64, Vector{Float64}}
-                      ┌                                                                                ┐
-          LinRegSweep ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.03
-             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■■■ 0.0097
-       LinRegCholesky ┤■■■■■■■■■ 0.0038
+                                             n=1000000, p=50, w=Nothing
+                      ┌                                                                      ┐
+          LinRegSweep ┤■■■■■■■■■■■■ 0.1406
+             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.7197
+       LinRegCholesky ┤■■■■■■■■■■■■ 0.1405
+   LinRegBunchKaufman ┤■■■■■■■■■■■■ 0.1426
+                      └                                                                      ┘
+                         n=1000000, p=50, w=LinearAlgebra.Diagonal{Float64, Vector{Float64}}
+                      ┌                                                                      ┐
+          LinRegSweep ┤■■■■■■■■■■■■■■ 0.1796
+             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.7881
+       LinRegCholesky ┤■■■■■■■■■■■■■■ 0.1744
+   LinRegBunchKaufman ┤■■■■■■■■■■■■■ 0.1714
+                      └                                                                      ┘
+                                              n=1000, p=500, w=Nothing
+                      ┌                                                                      ┐
+          LinRegSweep ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.0254
+             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■ 0.009
+       LinRegCholesky ┤■■■■■ 0.0022
+   LinRegBunchKaufman ┤■■■■■■■■■■ 0.0042
+                      └                                                                      ┘
+                          n=1000, p=500, w=LinearAlgebra.Diagonal{Float64, Vector{Float64}}
+                      ┌                                                                      ┐
+          LinRegSweep ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.0256
+             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■■ 0.0095
+       LinRegCholesky ┤■■■■■■■■■ 0.0037
    LinRegBunchKaufman ┤■■■■■■■■■■■■■■ 0.0057
+                      └                                                                      ┘
 ```
 
 ## Resources
