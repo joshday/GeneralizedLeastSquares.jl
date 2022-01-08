@@ -9,168 +9,143 @@ using Statistics: mean
 # Objective:    argmin_β (y - Xβ)' W (y - Xβ)
 # Normal Equation:    (X'WX) β = X'Wy
 
-#-----------------------------------------------------------------------------# Algorithm
-abstract type Algorithm end
+#-----------------------------------------------------------------------------# LinRegAlgorithm
+# Object that calculates β and can (on command) calculate the rest of the interface functions.
+abstract type LinRegAlgorithm end
 
-coef(alg::Algorithm) = alg.β
-
-function Base.show(io::IO, g::T) where {T<:Algorithm}
+function Base.show(io::IO, g::T) where {T<:LinRegAlgorithm}
     nm = replace(string(T), "GeneralizedLeastSquares." => "")
     print(IOContext(io, :compact=>true), "$nm with coef: ", coef(g)')
 end
 
-docstring = """
-solves the generalized least squares problem:
+# Interface
+coef(model::LinRegAlgorithm) = model.β
+predict(model::LinRegAlgorithm, x::AbstractMatrix) = x * model.β
+predict(model::LinRegAlgorithm, x::AbstractVector) = dot(x, model.β)
 
-- Objective Function:
 
-``
-argmin_β (y - Xβ)'W (y - Xβ)
-``
+#-----------------------------------------------------------------------------# Matrix Operations
+const BlasVector{T} = StridedVector{T} where {T<:LinearAlgebra.BlasFloat}
+const BlasMatrix{T} = StridedMatrix{T} where {T<:LinearAlgebra.BlasFloat}
+const AbstractW = Union{<:BlasMatrix, <:UniformScaling}
 
-- Normal equations:
-``
-X'WXβ = X'Wy
-``
-
-### Numerical Stability
-
-In order of stability (least-to-most stable):
-
-- [`SweepGLS`](@ref)
-- [`CholeskyGLS`](@ref)
-- [`QR_GLS`](@ref)
-"""
-
-#-----------------------------------------------------------------------------# augmat
-"""
-    augmat!(a, x, y, W=I)
-
-Overwrite `a` with the "augmented" block matrix (upper triangle only):
-
-```
-| X'WX   X'Wy |
-| y'WX   y'Wy |  ./ n
-```
-"""
-function augmat!(a::Matrix{T}, x::StridedMatrix{T}, y::StridedVector{T}, ::UniformScaling=I) where {T<:Union{BlasFloat, BlasComplex}}
-    n, p = size(x)
-    @assert checksquare(a) > p
-    α = T(1 / n)
-    @views @inbounds begin
-        BLAS.syrk!('U', 'T', α, x, zero(T), a[1:p, 1:p]) # x'x
-        BLAS.gemv!('T', α, x, y, zero(T), a[1:p, end])   # x'y
-        a[end] = mean(abs2, y)                           # y'y
-    end
-    return a
-end
-
-# v_inv requires methods: `x' * v_inv` and `dot(y, v_inv, y)`
-function augmat!(a::Matrix, x::AbstractMatrix, y::AbstractVector, v_inv)
-    n, p = size(x)
-    @assert checksquare(a) > p
-    @views @inbounds begin
-        xtv = x'v_inv
-        a[1:p, 1:p] = xtv * x ./ n      # X'WX
-        a[1:p, end] = xtv * y ./ n      # X'Wy
-        a[end] = dot(y, v_inv, y) / n   # y'Wy
-    end
-    return a
-end
-
-"""
-    augmat(x, y, W=I)
-
-Create the "augmented" block matrix (upper triangle only):
-
-```
-| X'WX   X'Wy |
-| y'WX   y'Wy |  ./ n
-```
-
-- See [augmat!](@ref) for the in-place version.
-"""
-function augmat(x::AbstractMatrix, y::AbstractVector, v_inv=I)
-    p = size(x, 2) + 1
-    T = promote_type(eltype(x), eltype(y), eltype(v_inv))
-    a = zeros(T, p, p)
-    augmat!(a, x, y, v_inv)
-end
-
-#-----------------------------------------------------------------------------# SweepGLS
-"""
-    SweepGLS(x, y, W = I)
-
-Using the [sweep operator](https://github.com/joshday/SweepOperator.jl), `SweepGLS` $docstring
-
-### Additional Notes
-
-- The sweep operator is how SAS performs regression.
-- The inverse of `x' * W * x ./ n` is provided (`model.matrix[1:end-1, 1:end-1]`).
-    - Required for standard errors of β.
-- The biased mean squared error `MSE = mean(abs2, y - x*β)` is provided (`model.matrix[end]`).
-"""
-struct SweepGLS{T} <: Algorithm
-    matrix::Matrix{T}
+# Required components:
+# - cholesky:       X'WX and X'Wy
+# - QR:             thin QR of X
+# - sweep:          [X'WX X'Wy]
+# - BunchKaufman:   X'WX and X'Wy
+#-----------------------------------------------------------------------------# LinRegQR
+mutable struct LinRegQR{T, Y<:BlasVector{T}} <: LinRegAlgorithm
+    y::Y
+    qrx::LinearAlgebra.QRCompactWY{T, Matrix{T}}
     β::Vector{T}
-    function SweepGLS(x, y, v_inv=I)
-        a = augmat(x, y, v_inv)
-        sweep!(a, 1:size(x,2))
-        new{eltype(a)}(a, a[1:end-1, end])
+end
+function LinRegQR(x, y)
+    qrx = qr(x)
+    β = qrx \ y
+    LinRegQR(y, qrx, β)
+end
+LinRegQR(x, y, v) = (v2 = sqrt(v); LinRegQR(v2*x, v2*y))
+
+function update!(model::LinRegQR, x::AbstractMatrix, y::AbstractVector)
+    resize!(model.y, length(y))
+    copy!(model.y, y)
+    model.qrx = qr(x)
+    model.β = model.qrx \ model.y
+    model
+end
+function update!(model::LinRegQR{T}, x, y, w) where {T}
+    w2 = sqrt(w)
+    update!(model, w2 * x, w2 * y)
+    model
+end
+
+#-----------------------------------------------------------------------------# LinRegCholesky
+struct LinRegCholesky{T} <: LinRegAlgorithm
+    A::BlasMatrix{T}    # X'WX
+    b::BlasVector{T}    # X'Wy
+    β::Vector{T}
+    LinRegCholesky{T}(p::Integer) where {T} = new{T}(zeros(T, p, p), zeros(T, p), zeros(T, p))
+end
+LinRegCholesky(x, args...) = update!(LinRegCholesky{eltype(x)}(size(x,2)), x, args...)
+
+function update!(model::LinRegCholesky{T}, x::AbstractMatrix, y::AbstractVector, w; buffer=zeros(T, size(x)...)) where {T}
+    A, b = model.A, model.b
+    mul!(buffer, w, x)
+    α = T(1 / length(y))
+    mul!(A, buffer', x, α, zero(T))
+    mul!(b, buffer', y, α, zero(T))
+    model.β[:] = cholesky(Hermitian(A)) \ b
+    model
+end
+function update!(model::LinRegCholesky{T}, x::BlasMatrix{T}, y::BlasVector{T}) where {T}
+    A, b = model.A, model.b
+    α = T(1 / length(y))
+    BLAS.syrk!('U', 'T', α, x, zero(T), A)
+    BLAS.gemv!('T', α, x, y, zero(T), b)
+    model.β[:] = cholesky(Hermitian(A)) \ b
+    model
+end
+
+#-----------------------------------------------------------------------------# LinRegBunchKaufman
+struct LinRegBunchKaufman{T} <: LinRegAlgorithm
+    A::BlasMatrix{T}    # X'WX
+    b::BlasVector{T}    # X'Wy
+    β::Vector{T}
+    LinRegBunchKaufman{T}(p::Integer) where {T} = new{T}(zeros(T, p, p), zeros(T, p), zeros(T, p))
+end
+LinRegBunchKaufman(x, args...) = update!(LinRegBunchKaufman{eltype(x)}(size(x,2)), x, args...)
+
+function update!(model::LinRegBunchKaufman{T}, x::AbstractMatrix, y::AbstractVector, w; buffer=zeros(T, size(x)...)) where {T}
+    A, b = model.A, model.b
+    mul!(buffer, w, x)
+    α = T(1 / length(y))
+    mul!(A, buffer', x, α, zero(T))
+    mul!(b, buffer', y, α, zero(T))
+    model.β[:] = bunchkaufman(Hermitian(A)) \ b
+    model
+end
+function update!(model::LinRegBunchKaufman{T}, x::BlasMatrix{T}, y::BlasVector{T}) where {T}
+    A, b = model.A, model.b
+    α = T(1 / length(y))
+    BLAS.syrk!('U', 'T', α, x, zero(T), A)
+    BLAS.gemv!('T', α, x, y, zero(T), b)
+    model.β[:] = bunchkaufman(Hermitian(A)) \ b
+    model
+end
+
+#-----------------------------------------------------------------------------# LinRegSweep
+struct LinRegSweep{T} <: LinRegAlgorithm
+    A::BlasMatrix{T}    # [X'WX X'Wy]
+    β::Vector{T}
+    LinRegSweep{T}(p::Integer) where {T} = new{T}(zeros(T, p + 1, p + 1), zeros(T, p))
+end
+LinRegSweep(x, args...) = update!(LinRegSweep{eltype(x)}(size(x,2)), x, args...)
+
+function update!(model::LinRegSweep{T}, x::AbstractMatrix, y::AbstractVector, w; buffer=zeros(T, size(x)...)) where {T}
+    A = model.A
+    p = size(A, 1) - 1
+    mul!(buffer, w, x)
+    α = T(1 / length(y))
+    @views begin
+        mul!(A[1:p, 1:p], buffer', x, α, zero(T))
+        mul!(A[1:p, end], buffer', y, α, zero(T))
+        sweep!(A, 1:p)
+        copy!(model.β, A[1:p, end])
     end
+    model
 end
-
-#-----------------------------------------------------------------------------# CholeskyGLS
-"""
-    CholeskyGLS(x, y, W = I)
-
-Using the cholesky decomposition, `CholeskyGLS` $docstring
-
-### Additional Notes
-
-- The biased mean squared error `mean(abs2, y - x*β)` is easily available:
-    - `dot(model.decomp.U[1:end-1, end])`
-- If standard errors are needed, `inv(x' * W * x ./ n)` is available via `inv(model.decomp)`.
-"""
-struct CholeskyGLS{T<:Cholesky, S} <: Algorithm
-    decomp::T
-    β::Vector{S}
-    function CholeskyGLS(x, y, v_inv=I)
-        a = augmat(x, y, v_inv)
-        decomp = cholesky(Symmetric(a, :U))
-        β = @views decomp.U[1:end-1, 1:end-1] \ decomp.U[1:end-1, end]
-        new{typeof(decomp),eltype(β)}(decomp, β)
+function update!(model::LinRegSweep{T}, x::AbstractMatrix, y::AbstractVector) where {T}
+    A = model.A
+    p = size(A, 1) - 1
+    α = T(1 / length(y))
+    @views begin
+        BLAS.syrk!('U', 'T', α, x, zero(T), A[1:p, 1:p])
+        BLAS.gemv!('T', α, x, y, zero(T), A[1:p, end])
+        sweep!(A, 1:p)
+        copy!(model.β, A[1:p, end])
     end
+    model
 end
-
-#-----------------------------------------------------------------------------# QR_GLS
-"""
-    QR_GLS(x, y, sqrtW = I)  # NOTE!!! last argument is the `sqrt` matrix!
-
-Using the cholesky decomposition, `QR_GLS` $docstring
-
-
-### Additional Notes
-
-- This is the most stable algorithm (and slowest for n >> p).
-"""
-struct QR_GLS{QR<:LinearAlgebra.QRCompactWY, S} <: Algorithm
-    decomp::QR
-    β::Vector{S}
-end
-function qr_coef(decomp)
-    @views UpperTriangular(decomp.R[1:end-1, 1:end-1]) \ decomp.R[1:end-1, end]
-end
-
-function QR_GLS(x, y, ::UniformScaling = I)
-    decomp = qr([x y])
-    QR_GLS(decomp, qr_coef(decomp))
-end
-
-function QR_GLS(x, y, v_invsqrt)
-    decomp = qr(v_invsqrt * [x y])
-    QR_GLS(decomp, qr_coef(decomp))
-end
-
 
 end

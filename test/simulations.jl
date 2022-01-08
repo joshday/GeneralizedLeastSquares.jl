@@ -1,10 +1,9 @@
 module GLSBenchmarks
 
-using GeneralizedLeastSquares: SweepGLS, CholeskyGLS, QR_GLS
+using GeneralizedLeastSquares: coef, LinRegQR, LinRegCholesky, LinRegBunchKaufman, LinRegSweep
 using LinearAlgebra
 using BenchmarkTools
 using Statistics
-using DataFrames
 using UnicodePlots
 using OrderedCollections: OrderedDict
 
@@ -12,42 +11,33 @@ using OrderedCollections: OrderedDict
 
 BenchmarkTools.DEFAULT_PARAMETERS.seconds = 5
 
-
-linreg(x, y) = Hermitian(x'x) \ x'y
-linreg(x, y, ::UniformScaling) = linreg(x, y)
-linreg(x, y, w) = (A = x'w; Hermitian(A*x) \ A*y)
-
-
-function sim(n, p, w=I)
+function sim(n, p, w=nothing)
+    title="n=$n, p=$p, w=$(typeof(w))"
     x = randn(n, p)
-    errs = w isa UniformScaling ? randn(n) : Matrix(cholesky(w).U) * randn(n)
+    errs = isnothing(w) ? randn(n) : cholesky(w).U * randn(n)
     y = x * (1:p) + errs
+
+    args = isnothing(w) ? (x, y) : (x, y, w)
 
     out = OrderedDict{String, BenchmarkTools.Trial}()
 
-    out["SweepGLS"] =       @benchmark SweepGLS($x, $y, $w)
-    out["CholeskyGLS"] =    @benchmark CholeskyGLS($x, $y, $w)
-    out["QR_GLS"] =         @benchmark QR_GLS($x, $y, $(sqrt(w)))
-    out["linreg"] =         @benchmark linreg($x, $y, $w)
+    out["LinRegSweep"] =        @benchmark LinRegSweep($args...)
+    out["LinRegQR"] =           @benchmark LinRegQR($args...)
+    out["LinRegCholesky"] =     @benchmark LinRegCholesky($args...)
+    out["LinRegBunchKaufman"] = @benchmark LinRegBunchKaufman($args...)
 
-    df = DataFrame(model="SweepGLS", times=out["SweepGLS"])
-    append!(df, DataFrame(model="CholeskyGLS", times=out["CholeskyGLS"]))
-    append!(df, DataFrame(model="QR_GLS", times=out["QR_GLS"]))
-    append!(df, DataFrame(model="linreg", times=out["linreg"]))
-
-
-    wname = w isa UniformScaling ? "I" : typeof(w)
 
     data = round.(map(x -> median(x).time, values(out)) ./ 10^9, digits=4)
-    b = barplot(collect(keys(out)), data, width=80, title="n=$n, p=$p, w=$wname")
+    b = barplot(collect(keys(out)), data; width=80, title)
     show(b)
     println()
 end
 
-for i in 4:5, j in 2:3
-    sim(10^i, 10^j, I)
-    sim(10^i, 10^j, inv(Diagonal(rand(10^i))))
-end
+sim(10^6, 50)
+sim(10^6, 50, Diagonal(rand(10^6)))
+
+sim(1000, 500)
+sim(1000, 500, Diagonal(rand(1000)))
 
 
 end

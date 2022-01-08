@@ -25,27 +25,22 @@ Firstly, why even provide multiple solvers?
 
 **There is no universally superior method**.  Your task may prioritize stability over speed (or vice versa).
 
-### `SweepGLS(x, y, w)`
-
-- GLS via the [sweep operator](https://github.com/joshday/SweepOperator.jl)
-- Less stable, also gets you standard errors for free.
-- Used by SAS.
-
-### `CholeskyGLS(x, y, w)`
-
-- GLS via the cholesky decomposition.
-- Less stable, often the fastest.
-
-### `QR_GLS(x, y, sqrt_w)`
-
-- GLS via the QR decomposition (most stable, but much slower for n >> p).
-- Most stable.
-- Note that in order to be more efficient, this algorithm uses the matrix square root as the third argument.
-- Used by R/[GLM.jl](https://github.com/JuliaStats/GLM.jl)
+- `LinRegQR(x, y)`
+   - Most stable (also slowest).
+   - Used by R/GLM.jl
+   - Essentially: `qr(x) \ y `
+- `LinRegSweep(x, y, w=I)`
+   - Used by SAS
+   - Does the heavy computation of standard errors (`inv(x' * w * x)`) for free.
+   - Essentially: `SweepOperator.sweep([x y]' * w * [x y], 1:size(x, 2))`
+- `LinRegCholesky(x, y, w=I)`
+   - Essentially: `cholesky(Hermitian(x'*w*x)) \ x'*w*y`
+- `LinRegBunchKaufman(x, y, w=I)`
+   - Essentially: `bunchkaufman(Hermitian(x'*w*x)) \ x'*w*y`
 
 ## Benchmarks (see `test/simulations.jl`)
 
-Calculated on:
+### Calculated on:
 ```
 julia> versioninfo()
 Julia Version 1.7.0
@@ -58,79 +53,44 @@ Platform Info:
   LLVM: libLLVM-12.0.1 (ORCJIT, cyclone)
 ```
 
-Data generation (for given `n::Int`, `p::Int`, v::Matrix):
+### Data generation (for given `n::Int`, `p::Int`):
 
 ```julia
 x = randn(n, p)
-errs = w isa UniformScaling ? randn(n) : cholesky(w) * randn(n)
+errs = cholesky(w).U * randn(n)  # For ws: I(n) and Diagonal(rand(n))
 y = x * (1:p) + errs
 ```
 
-Included in benchmarks:
-```
-linreg(x, y) = Hermitian(x'x) \ x'y
-linreg(x, y, ::UniformScaling) = linreg(x, y)
-linreg(x, y, w) = (A = x'w; Hermitian(A*x) \ A*y)
-```
+### OLS Timings
 
-### Timings (in seconds)
 ```
-                                               n=10000, p=100, w=I
-               ┌                                                                                ┐
-      SweepGLS ┤■■■■■■■■■■■■■■■ 0.0037
-   CholeskyGLS ┤■■■■■■■ 0.0018
-        QR_GLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.0174
-        linreg ┤■■■■■■■ 0.0016
-               └                                                                                ┘
-                              n=10000, p=100, w=Diagonal{Float64, Vector{Float64}}
-               ┌                                                                                ┐
-      SweepGLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.0073
-   CholeskyGLS ┤■■■■■■■■■■■■■■■■■ 0.0045
-        QR_GLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.0194
-        linreg ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.0079
-               └                                                                                ┘
-                                              n=10000, p=1000, w=I
-               ┌                                                                                ┐
-      SweepGLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.1682
-   CholeskyGLS ┤■■■■■■■■■■■■■■ 0.0618
-        QR_GLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.3258
-        linreg ┤■■■■■■■■■■■■■■■■■■■ 0.0875
-               └                                                                                ┘
-                              n=10000, p=1000, w=Diagonal{Float64, Vector{Float64}}
-               ┌                                                                                ┐
-      SweepGLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.3292
-   CholeskyGLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.1837
-        QR_GLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.4683
-        linreg ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.3575
-               └                                                                                ┘
-                                              n=100000, p=100, w=I
-               ┌                                                                                ┐
-      SweepGLS ┤■■■■■■■■ 0.0255
-   CholeskyGLS ┤■■■■■■■ 0.0217
-        QR_GLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.2253
-        linreg ┤■■■■■■ 0.0184
-               └                                                                                ┘
-                              n=100000, p=100, w=Diagonal{Float64, Vector{Float64}}
-               ┌                                                                                ┐
-      SweepGLS ┤■■■■■■■■■■■■■■■■ 0.0437
-   CholeskyGLS ┤■■■■■■■■■■■■■■■■ 0.0441
-        QR_GLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.1966
-        linreg ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.0877
-               └                                                                                ┘
-                                              n=100000, p=1000, w=I
-               ┌                                                                                ┐
-      SweepGLS ┤■■■■■■■■■■■■■■ 0.7016
-   CholeskyGLS ┤■■■■■■■■■■■■ 0.5973
-        QR_GLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 3.5877
-        linreg ┤■■■■■■■■■■■■■ 0.6376
-               └                                                                                ┘
-                             n=100000, p=1000, w=Diagonal{Float64, Vector{Float64}}
-               ┌                                                                                ┐
-      SweepGLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■ 1.4195
-   CholeskyGLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 1.6149
-        QR_GLS ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 4.0976
-        linreg ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 3.2898
-               └                                                                                ┘
+                                                  n=1000000, p=50, w=Nothing
+                      ┌                                                                                ┐
+          LinRegSweep ┤■■■■■■■■■■■■■■ 0.1423
+             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.7208
+       LinRegCholesky ┤■■■■■■■■■■■■■■ 0.1421
+   LinRegBunchKaufman ┤■■■■■■■■■■■■■■ 0.1414
+                      └                                                                                ┘
+                              n=1000000, p=50, w=LinearAlgebra.Diagonal{Float64, Vector{Float64}}
+                      ┌                                                                                ┐
+          LinRegSweep ┤■■■■■■■■■■■■■■■■ 0.1696
+             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.7722
+       LinRegCholesky ┤■■■■■■■■■■■■■■■ 0.1659
+   LinRegBunchKaufman ┤■■■■■■■■■■■■■■■ 0.164
+                      └                                                                                ┘
+                                                   n=1000, p=500, w=Nothing
+                      ┌                                                                                ┐
+          LinRegSweep ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.0295
+             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■ 0.0092
+       LinRegCholesky ┤■■■■■■ 0.0024
+   LinRegBunchKaufman ┤■■■■■■■■■■ 0.0043
+                      └                                                                                ┘
+                               n=1000, p=500, w=LinearAlgebra.Diagonal{Float64, Vector{Float64}}
+                      ┌                                                                                ┐
+          LinRegSweep ┤■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 0.03
+             LinRegQR ┤■■■■■■■■■■■■■■■■■■■■■■■■ 0.0097
+       LinRegCholesky ┤■■■■■■■■■ 0.0038
+   LinRegBunchKaufman ┤■■■■■■■■■■■■■■ 0.0057
 ```
 
 ## Resources
