@@ -61,7 +61,7 @@ errs = cholesky(w).U * randn(n)  # For ws: I(n) and Diagonal(rand(n))
 y = x * (1:p) + errs
 ```
 
-### OLS Timings
+### Timings
 
 ```
                                              n=1000000, p=50, w=Nothing
